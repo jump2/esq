@@ -11,6 +11,8 @@ import (
 	"encoding/json"
 	"log"
 
+	"github.com/elastic/go-elasticsearch/v7"
+
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 )
 
