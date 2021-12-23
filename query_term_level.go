@@ -6,16 +6,18 @@
 
 package esq
 
+import "reflect"
+
 //Term Query
 type TermQuery struct {
 	field      string
+	omitValue  interface{}
 	parameters TermQueryParameters
 }
 
 type TermQueryParameters struct {
-	Value           interface{} `json:"value"`
-	Boost           float32     `json:"boost,omitempty"`
-	CaseInsensitive bool        `json:"case_insensitive,omitempty"`
+	Value interface{} `json:"value"`
+	Boost float32     `json:"boost,omitempty"`
 }
 
 func Term(field string, value interface{}) *TermQuery {
@@ -27,25 +29,29 @@ func Term(field string, value interface{}) *TermQuery {
 	}
 }
 
+func (q *TermQuery) OmitValue(v interface{}) *TermQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *TermQuery) Boost(v float32) *TermQuery {
 	q.parameters.Boost = v
 	return q
 }
 
-func (q *TermQuery) CaseInsensitive(v bool) *TermQuery {
-	q.parameters.CaseInsensitive = v
-	return q
-}
-
 func (q *TermQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Value) {
+		return nil
+	}
 	return NewMap("term", NewMap(q.field, q.parameters))
 }
 
 //Terms Query
 type TermsQuery struct {
-	field string
-	value []interface{}
-	boost float32
+	field     string
+	value     []interface{}
+	boost     float32
+	omitValue interface{}
 }
 
 func Terms(field string, value ...interface{}) *TermsQuery {
@@ -55,13 +61,46 @@ func Terms(field string, value ...interface{}) *TermsQuery {
 	}
 }
 
+func (q *TermsQuery) OmitValue(v interface{}) *TermsQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *TermsQuery) Boost(v float32) *TermsQuery {
 	q.boost = v
 	return q
 }
 
 func (q *TermsQuery) Map() Map {
-	termsQuery := NewMap(q.field, q.value)
+	values := make([]interface{}, 0)
+	if len(q.value) == 0 {
+		return nil
+	}
+	v := reflect.ValueOf(q.value[0])
+	t := v.Type()
+	if t.Kind() == reflect.Slice {
+		if v.Len() == 0 {
+			return nil
+		}
+
+		for i := 0; i < v.Len(); i++ {
+			values = append(values, v.Index(i).Interface())
+		}
+	} else {
+		values = append(values, q.value...)
+	}
+
+	fvalue := make([]interface{}, 0)
+	for _, v := range values {
+		if ToStr(q.omitValue) != ToStr(v) {
+			fvalue = append(fvalue, v)
+		}
+	}
+	if len(fvalue) == 0 {
+		return nil
+	}
+
+	termsQuery := NewMap(q.field, fvalue)
 	if q.boost > 0 {
 		termsQuery.Set("boost", q.boost)
 	}
@@ -71,6 +110,7 @@ func (q *TermsQuery) Map() Map {
 //Terms Set Query
 type TermsSetQuery struct {
 	field      string
+	omitValue  interface{}
 	parameters TermsSetQueryParameters
 }
 
@@ -89,6 +129,11 @@ func TermsSet(field string, value ...interface{}) *TermsSetQuery {
 	}
 }
 
+func (q *TermsSetQuery) OmitValue(v interface{}) *TermsSetQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *TermsSetQuery) MinimumShouldMatchField(field string) *TermsSetQuery {
 	q.parameters.MinimumShouldMatchField = field
 	return q
@@ -100,19 +145,50 @@ func (q *TermsSetQuery) MinimumShouldMatchScript(script string) *TermsSetQuery {
 }
 
 func (q *TermsSetQuery) Map() Map {
+	values := make([]interface{}, 0)
+	if len(q.parameters.Terms) == 0 {
+		return nil
+	}
+	v := reflect.ValueOf(q.parameters.Terms[0])
+	t := v.Type()
+	if t.Kind() == reflect.Slice {
+		if v.Len() == 0 {
+			return nil
+		}
+
+		for i := 0; i < v.Len(); i++ {
+			values = append(values, v.Index(i).Interface())
+		}
+	} else {
+		values = append(values, q.parameters.Terms...)
+	}
+
+	fvalue := make([]interface{}, 0)
+	for _, v := range values {
+		if ToStr(q.omitValue) != ToStr(v) {
+			fvalue = append(fvalue, v)
+		}
+	}
+	if len(fvalue) == 0 {
+		return nil
+	}
+
+	q.parameters.Terms = fvalue
+
 	return NewMap("terms_set", NewMap(q.field, q.parameters))
 }
 
 //Wildcard Query
 type WildcardQuery struct {
 	field      string
+	omitValue  string
 	parameters WildcardQueryParameters
 }
 
 type WildcardQueryParameters struct {
 	Value           string  `json:"value"`
 	Boost           float32 `json:"boost,omitempty"`
-	Rewrite         string  `json:"rewrite,omitempty"`
+	Rewrite         Rewrite `json:"rewrite,omitempty"`
 	CaseInsensitive bool    `json:"case_insensitive,omitempty"`
 }
 
@@ -125,12 +201,17 @@ func Wildcard(field string, value string) *WildcardQuery {
 	}
 }
 
+func (q *WildcardQuery) OmitValue(v string) *WildcardQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *WildcardQuery) Boost(v float32) *WildcardQuery {
 	q.parameters.Boost = v
 	return q
 }
 
-func (q *WildcardQuery) Rewrite(v string) *WildcardQuery {
+func (q *WildcardQuery) Rewrite(v Rewrite) *WildcardQuery {
 	q.parameters.Rewrite = v
 	return q
 }
@@ -142,21 +223,25 @@ func (q *WildcardQuery) CaseInsensitive(v bool) *WildcardQuery {
 }
 
 func (q *WildcardQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Value) {
+		return nil
+	}
 	return NewMap("wildcard", NewMap(q.field, q.parameters))
 }
 
 //Regexp Query
 type RegexpQuery struct {
 	field      string
+	omitValue  string
 	parameters RegexpQueryParameters
 }
 
 type RegexpQueryParameters struct {
-	Value                 string
-	Flags                 string `json:"flags,omitempty"`
-	Rewrite               string `json:"rewrite,omitempty"`
-	CaseInsensitive       bool   `json:"case_insensitive,omitempty"`
-	MaxDeterminizedStates int32  `json:"max_determinized_states,omitempty"`
+	Value                 string  `json:"value"`
+	Flags                 string  `json:"flags,omitempty"`
+	Rewrite               Rewrite `json:"rewrite,omitempty"`
+	CaseInsensitive       bool    `json:"case_insensitive,omitempty"`
+	MaxDeterminizedStates int32   `json:"max_determinized_states,omitempty"`
 }
 
 func Regex(field string, value string) *RegexpQuery {
@@ -168,12 +253,17 @@ func Regex(field string, value string) *RegexpQuery {
 	}
 }
 
+func (q *RegexpQuery) OmitValue(v string) *RegexpQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *RegexpQuery) Flags(v string) *RegexpQuery {
 	q.parameters.Flags = v
 	return q
 }
 
-func (q *RegexpQuery) Rewrite(v string) *RegexpQuery {
+func (q *RegexpQuery) Rewrite(v Rewrite) *RegexpQuery {
 	q.parameters.Rewrite = v
 	return q
 }
@@ -189,6 +279,13 @@ func (q *RegexpQuery) MaxDeterminizedStates(v int32) *RegexpQuery {
 	return q
 }
 
+func (q *RegexpQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Value) {
+		return nil
+	}
+	return NewMap("regexp", NewMap(q.field, q.parameters))
+}
+
 //Range Query
 type Relation string
 
@@ -200,6 +297,7 @@ const (
 
 type RangeQuery struct {
 	field      string
+	omitValue  interface{}
 	parameters RangeQueryParameters
 }
 
@@ -218,6 +316,11 @@ func Range(field string) *RangeQuery {
 	return &RangeQuery{
 		field: field,
 	}
+}
+
+func (q *RangeQuery) OmitValue(v interface{}) *RangeQuery {
+	q.omitValue = v
+	return q
 }
 
 func (q *RangeQuery) Gt(v interface{}) *RangeQuery {
@@ -261,7 +364,20 @@ func (q *RangeQuery) Boost(v float32) *RangeQuery {
 }
 
 func (q *RangeQuery) Map() Map {
-	if q.parameters == (RangeQueryParameters{}) {
+	omitValue := ToStr(q.omitValue)
+	if omitValue == ToStr(q.parameters.Gt) {
+		q.parameters.Gt = nil
+	}
+	if omitValue == ToStr(q.parameters.Gte) {
+		q.parameters.Gte = nil
+	}
+	if omitValue == ToStr(q.parameters.Lt) {
+		q.parameters.Lt = nil
+	}
+	if omitValue == ToStr(q.parameters.Lte) {
+		q.parameters.Lte = nil
+	}
+	if q.parameters == (RangeQueryParameters{}) || (q.parameters.Gt == nil && q.parameters.Gte == nil && q.parameters.Lt == nil && q.parameters.Lte == nil) {
 		return nil
 	}
 
@@ -271,13 +387,14 @@ func (q *RangeQuery) Map() Map {
 //Prefix Query
 type PrefixQuery struct {
 	field      string
+	omitValue  string
 	parameters PrefixQueryParameters
 }
 
 type PrefixQueryParameters struct {
-	Value           string `json:"value"`
-	Rewrite         string `json:"rewrite,omitempty"`
-	CaseInsensitive bool   `json:"case_insensitive,omitempty"`
+	Value           string  `json:"value"`
+	Rewrite         Rewrite `json:"rewrite,omitempty"`
+	CaseInsensitive bool    `json:"case_insensitive,omitempty"`
 }
 
 func Prefix(field string, value string) *PrefixQuery {
@@ -289,7 +406,12 @@ func Prefix(field string, value string) *PrefixQuery {
 	}
 }
 
-func (q *PrefixQuery) Rewrite(v string) *PrefixQuery {
+func (q *PrefixQuery) OmitValue(v string) *PrefixQuery {
+	q.omitValue = v
+	return q
+}
+
+func (q *PrefixQuery) Rewrite(v Rewrite) *PrefixQuery {
 	q.parameters.Rewrite = v
 	return q
 }
@@ -301,6 +423,9 @@ func (q *PrefixQuery) CaseInsensitive(v bool) *PrefixQuery {
 }
 
 func (q *PrefixQuery) Map() Map {
+	if q.omitValue == ToStr(q.parameters.Value) {
+		return nil
+	}
 	return NewMap("prefix", NewMap(q.field, q.parameters))
 }
 

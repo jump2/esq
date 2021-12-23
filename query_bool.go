@@ -71,41 +71,72 @@ func (q *BoolQuery) Map() Map {
 	if len(q.must) > 0 {
 		data.Must = make([]Map, 0, len(q.must))
 		for _, m := range q.must {
+			if m == nil {
+				continue
+			}
 			v := m.Map()
 			if v != nil {
 				data.Must = append(data.Must, v)
 			}
+		}
+		if len(data.Must) == 0 {
+			data.Must = nil
 		}
 	}
 
 	if len(q.filter) > 0 {
 		data.Filter = make([]Map, 0, len(q.filter))
 		for _, m := range q.filter {
+			if m == nil {
+				continue
+			}
 			v := m.Map()
 			if v != nil {
 				data.Filter = append(data.Filter, v)
 			}
+		}
+		if len(data.Filter) == 0 {
+			data.Filter = nil
 		}
 	}
 
 	if len(q.mustNot) > 0 {
 		data.MustNot = make([]Map, 0, len(q.mustNot))
 		for _, m := range q.mustNot {
+			if m == nil {
+				continue
+			}
 			v := m.Map()
 			if v != nil {
 				data.MustNot = append(data.MustNot, v)
 			}
+		}
+		if len(data.MustNot) == 0 {
+			data.MustNot = nil
 		}
 	}
 
 	if len(q.should) > 0 {
 		data.Should = make([]Map, 0, len(q.should))
 		for _, m := range q.should {
+			if m == nil {
+				continue
+			}
 			v := m.Map()
 			if v != nil {
 				data.Should = append(data.Should, v)
 			}
 		}
+		if len(data.Should) == 0 {
+			data.Should = nil
+		}
+	}
+
+	if data.Must == nil &&
+		data.Filter == nil &&
+		data.MustNot == nil &&
+		data.Should == nil {
+		return nil
 	}
 
 	return NewMap("bool", data)

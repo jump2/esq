@@ -12,8 +12,8 @@ type MultiMatchType string
 type Rewrite string
 
 const (
-	OperatorOr  Operator = "OR"
-	OperatorAnd Operator = "And"
+	OperatorOr  Operator = "or"
+	OperatorAnd Operator = "and"
 
 	ZeroTermsNone ZeroTerms = "none"
 	ZeroTermsAll  ZeroTerms = "all"
@@ -35,19 +35,20 @@ const (
 //Match Query
 type MatchQuery struct {
 	field      string
+	omitValue  string
 	parameters MatchQueryParameters
 }
 
 type MatchQueryParameters struct {
 	Query                           string    `json:"query"`
 	Analyzer                        string    `json:"analyzer,omitempty"`
-	AutoGenerateSynonymsPhraseQuery bool      `json:"auto_generate_synonyms_phrase_query,omitempty"`
+	AutoGenerateSynonymsPhraseQuery *bool     `json:"auto_generate_synonyms_phrase_query,omitempty"`
 	Fuzziness                       string    `json:"fuzziness,omitempty"`
 	MaxExpansions                   int32     `json:"max_expansions,omitempty"`
 	PrefixLength                    int32     `json:"prefix_length,omitempty"`
 	FuzzyTranspositions             bool      `json:"fuzzy_transpositions,omitempty"`
 	FuzzyRewrite                    string    `json:"fuzzy_rewrite,omitempty"`
-	Lenient                         bool      `json:"lenient,omitempty"`
+	Lenient                         *bool     `json:"lenient,omitempty"`
 	Operator                        Operator  `json:"operator,omitempty"`
 	MinimumShouldMatch              string    `json:"minimum_should_match,omitempty"`
 	ZeroTermsQuery                  ZeroTerms `json:"zero_terms_query,omitempty"`
@@ -62,13 +63,18 @@ func Match(field string, query string) *MatchQuery {
 	}
 }
 
+func (q *MatchQuery) OmitValue(v string) *MatchQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *MatchQuery) Analyzer(v string) *MatchQuery {
 	q.parameters.Analyzer = v
 	return q
 }
 
 func (q *MatchQuery) AutoGenerateSynonymsPhraseQuery(v bool) *MatchQuery {
-	q.parameters.AutoGenerateSynonymsPhraseQuery = v
+	q.parameters.AutoGenerateSynonymsPhraseQuery = &v
 	return q
 }
 
@@ -98,7 +104,7 @@ func (q *MatchQuery) FuzzyRewrite(v string) *MatchQuery {
 }
 
 func (q *MatchQuery) Lenient(v bool) *MatchQuery {
-	q.parameters.Lenient = v
+	q.parameters.Lenient = &v
 	return q
 }
 
@@ -118,12 +124,16 @@ func (q *MatchQuery) ZeroTermsQuery(v ZeroTerms) *MatchQuery {
 }
 
 func (q *MatchQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Query) {
+		return nil
+	}
 	return NewMap("match", NewMap(q.field, q.parameters))
 }
 
 //Match Phrase Query
 type MatchPhraseQuery struct {
 	field      string
+	omitValue  string
 	parameters MatchPhraseQueryParameters
 }
 
@@ -143,6 +153,11 @@ func MatchPhrase(field string, query string) *MatchPhraseQuery {
 	}
 }
 
+func (q *MatchPhraseQuery) OmitValue(v string) *MatchPhraseQuery {
+	q.omitValue = v
+	return q
+}
+
 func (q *MatchPhraseQuery) Analyzer(v string) *MatchPhraseQuery {
 	q.parameters.Analyzer = v
 	return q
@@ -159,12 +174,16 @@ func (q *MatchPhraseQuery) Slop(v int32) *MatchPhraseQuery {
 }
 
 func (q *MatchPhraseQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Query) {
+		return nil
+	}
 	return NewMap("match_phrase", NewMap(q.field, q.parameters))
 }
 
 //Match Phrase Prefix Query
 type MatchPhrasePrefixQuery struct {
 	field      string
+	omitValue  string
 	parameters MatchPhrasePrefixQueryParameters
 }
 
@@ -183,6 +202,11 @@ func MatchPhrasePrefix(field string, query string) *MatchPhrasePrefixQuery {
 			Query: query,
 		},
 	}
+}
+
+func (q *MatchPhrasePrefixQuery) OmitValue(v string) *MatchPhrasePrefixQuery {
+	q.omitValue = v
+	return q
 }
 
 func (q *MatchPhrasePrefixQuery) MaxExpansions(v int32) *MatchPhrasePrefixQuery {
@@ -206,12 +230,16 @@ func (q *MatchPhrasePrefixQuery) Slop(v int32) *MatchPhrasePrefixQuery {
 }
 
 func (q *MatchPhrasePrefixQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Query) {
+		return nil
+	}
 	return NewMap("match_phrase_prefix", NewMap(q.field, q.parameters))
 }
 
 //Multi-match Query
 //The fuzziness parameter cannot be used with the cross_fields type.
 type MultiMatchQuery struct {
+	omitValue  string
 	parameters MultiMatchQueryParameters
 }
 
@@ -242,6 +270,11 @@ func MultiMatch(fields []string, query string) *MultiMatchQuery {
 			Fields: fields,
 		},
 	}
+}
+
+func (q *MultiMatchQuery) OmitValue(v string) *MultiMatchQuery {
+	q.omitValue = v
+	return q
 }
 
 func (q *MultiMatchQuery) Type(t MultiMatchType) *MultiMatchQuery {
@@ -320,5 +353,8 @@ func (q *MultiMatchQuery) Rewrite(v Rewrite) *MultiMatchQuery {
 }
 
 func (q *MultiMatchQuery) Map() Map {
+	if ToStr(q.omitValue) == ToStr(q.parameters.Query) {
+		return nil
+	}
 	return NewMap("multi_match", q.parameters)
 }
