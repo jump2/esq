@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"log"
-	"os"
 
 	"github.com/elastic/go-elasticsearch/v7"
 
@@ -88,8 +87,6 @@ func (s *search) Run(client *elasticsearch.Client, o ...func(*esapi.SearchReques
 	if err := json.NewEncoder(&buf).Encode(s.parameter); err != nil {
 		log.Printf("Error encoding query: %s", err)
 	}
-
-	os.Stdout.Write(buf.Bytes())
 
 	o = append(o, client.Search.WithBody(&buf))
 	return client.Search(o...)
